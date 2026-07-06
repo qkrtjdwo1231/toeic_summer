@@ -12,12 +12,11 @@
 
 - [x] 1단계: 공통 기반(Next.js 프로젝트 + 공유 비밀번호 게이트) 계획 작성 (`docs/superpowers/plans/2026-07-06-foundation-nextjs-password-gate.md`)
 - [x] 1단계 실행 및 배포 확인 (Vercel 배포 완료, 비밀번호 게이트 정상 동작 확인, 2026-07-06)
-- [ ] 2단계: 단어 시험 채점 기능 계획 작성
+- [x] 2단계: 단어 시험 채점 기능 계획 작성 (`docs/superpowers/plans/2026-07-06-vocab-grading-feature.md`, 답안 입력은 이번 라운드에 파일 업로드만 구현하기로 결정, 구글시트 링크는 범위 밖)
 - [ ] 2단계 실행
 - [ ] 3단계: 반 명단 문서 자동화 기능 계획 작성
 - [ ] 3단계 실행
 
 ## 다음 할 일
 
-- 1단계 최종 전체 브랜치 리뷰 진행.
-- 2단계(단어 시험 채점 기능) 구현 계획을 writing-plans 스킬로 작성.
+- 2단계 계획 실행 방식(subagent-driven vs inline) 사용자에게 확인 후 실행.
