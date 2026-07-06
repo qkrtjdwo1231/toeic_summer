@@ -3,16 +3,16 @@ import { AUTH_COOKIE_NAME, hashPassword, isValidPassword } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   let body;
+  let password;
   try {
     body = await request.json();
+    password = typeof body.password === "string" ? body.password : "";
   } catch {
     return NextResponse.json(
       { error: "비밀번호가 올바르지 않습니다." },
       { status: 401 }
     );
   }
-
-  const password = typeof body.password === "string" ? body.password : "";
 
   if (!isValidPassword(password)) {
     return NextResponse.json(
