@@ -7,7 +7,7 @@
 
 **Architecture:** Next.js App Router + TypeScript, Vercel 배포 대상. 인증은 세션/DB 없이 "요청 비밀번호 === 환경변수 SHARED_PASSWORD" 비교만 하고, 통과하면 httpOnly 쿠키(비밀번호의 SHA-256 해시값)를 심는다. 이후 모든 요청은 루트 `middleware.ts`가 쿠키를 재검증해 통과/리다이렉트를 결정한다. 이번 계획은 두 기능의 실제 화면/로직은 만들지 않고, 홈 화면에 두 기능으로 가는 링크만 놓는다.
 
-**Tech Stack:** Next.js 15 (App Router, TypeScript), Vitest (단위 테스트), Node 내장 `crypto` (해시, 추가 의존성 없음).
+**Tech Stack:** Next.js 15 (App Router, TypeScript), Vitest (단위 테스트), Web Crypto API `crypto.subtle` (해시, 추가 의존성 없음 — 미들웨어가 Edge 런타임에서 실행되므로 Node 내장 `crypto`는 사용 불가).
 
 ## Global Constraints
 
@@ -206,7 +206,7 @@ git commit -m "Next.js 프로젝트 스캐폴딩 추가"
 
 **Interfaces:**
 - Consumes: Task 1의 `npm test` 스크립트.
-- Produces: `AUTH_COOKIE_NAME: string`, `hashPassword(password: string): string`, `isValidPassword(input: string): boolean` — Task 3, 4에서 그대로 사용한다.
+- Produces: `AUTH_COOKIE_NAME: string`, `hashPassword(password: string): Promise<string>`, `isValidPassword(input: string): boolean` — Task 3, 4에서 그대로 사용한다.
 
 - [ ] **Step 1: vitest.config.ts 작성**
 
