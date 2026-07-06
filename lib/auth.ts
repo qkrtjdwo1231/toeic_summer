@@ -1,9 +1,11 @@
-import { createHash } from "crypto";
-
 export const AUTH_COOKIE_NAME = "vocab_web_auth";
 
-export function hashPassword(password: string): string {
-  return createHash("sha256").update(password).digest("hex");
+export async function hashPassword(password: string): Promise<string> {
+  const data = new TextEncoder().encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 export function isValidPassword(input: string): boolean {

@@ -8,32 +8,32 @@ describe("middleware", () => {
     delete process.env.SHARED_PASSWORD;
   });
 
-  it("redirects to /login when auth cookie is missing", () => {
+  it("redirects to /login when auth cookie is missing", async () => {
     const request = new NextRequest("http://localhost:3000/grading");
-    const response = middleware(request);
+    const response = await middleware(request);
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(
       "http://localhost:3000/login"
     );
   });
 
-  it("redirects to /login when auth cookie value is wrong", () => {
+  it("redirects to /login when auth cookie value is wrong", async () => {
     process.env.SHARED_PASSWORD = "test-secret";
     const request = new NextRequest("http://localhost:3000/grading", {
       headers: { cookie: `${AUTH_COOKIE_NAME}=wrong-hash` },
     });
-    const response = middleware(request);
+    const response = await middleware(request);
     expect(response.status).toBe(307);
   });
 
-  it("passes through when auth cookie matches the expected hash", () => {
+  it("passes through when auth cookie matches the expected hash", async () => {
     process.env.SHARED_PASSWORD = "test-secret";
     const request = new NextRequest("http://localhost:3000/grading", {
       headers: {
-        cookie: `${AUTH_COOKIE_NAME}=${hashPassword("test-secret")}`,
+        cookie: `${AUTH_COOKIE_NAME}=${await hashPassword("test-secret")}`,
       },
     });
-    const response = middleware(request);
+    const response = await middleware(request);
     expect(response.status).toBe(200);
   });
 });

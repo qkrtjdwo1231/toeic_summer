@@ -2,10 +2,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AUTH_COOKIE_NAME, hashPassword } from "@/lib/auth";
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const cookie = request.cookies.get(AUTH_COOKIE_NAME)?.value;
   const expected = process.env.SHARED_PASSWORD
-    ? hashPassword(process.env.SHARED_PASSWORD)
+    ? await hashPassword(process.env.SHARED_PASSWORD)
     : null;
 
   if (expected && cookie === expected) {

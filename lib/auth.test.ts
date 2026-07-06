@@ -25,14 +25,14 @@ describe("isValidPassword", () => {
 });
 
 describe("hashPassword", () => {
-  it("produces a consistent SHA-256 hex digest", () => {
-    const hash1 = hashPassword("test-secret");
-    const hash2 = hashPassword("test-secret");
+  it("produces a consistent SHA-256 hex digest", async () => {
+    const hash1 = await hashPassword("test-secret");
+    const hash2 = await hashPassword("test-secret");
     expect(hash1).toBe(hash2);
     expect(hash1).toMatch(/^[a-f0-9]{64}$/);
   });
 
-  it("produces different hashes for different inputs", () => {
-    expect(hashPassword("a")).not.toBe(hashPassword("b"));
+  it("produces different hashes for different inputs", async () => {
+    expect(await hashPassword("a")).not.toBe(await hashPassword("b"));
   });
 });
