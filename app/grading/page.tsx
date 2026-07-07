@@ -26,80 +26,102 @@ export default function GradingPage() {
   const [error, setError] = useState("");
   const [warnings, setWarnings] = useState<WarningRow[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   async function loadWordList() {
     setError("");
-    const res = await fetch(
-      `/api/grading/wordlist?classId=${classId}&day=${day}`
-    );
-    const data = await res.json();
-    if (data.wordList) {
-      setWordListText(
-        data.wordList
-          .map(
-            (entry: { word: string; meanings: string[] }) =>
-              `${entry.word}\t${entry.meanings.join("\t")}`
-          )
-          .join("\n")
+    setIsLoading(true);
+    try {
+      const res = await fetch(
+        `/api/grading/wordlist?classId=${classId}&day=${day}`
       );
-    } else {
-      setWordListText("");
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "단어장을 불러오지 못했습니다.");
+        return;
+      }
+
+      if (data.wordList) {
+        setWordListText(
+          data.wordList
+            .map(
+              (entry: { word: string; meanings: string[] }) =>
+                `${entry.word}\t${entry.meanings.join("\t")}`
+            )
+            .join("\n")
+        );
+      } else {
+        setWordListText("");
+      }
+      setStep("wordlist");
+    } finally {
+      setIsLoading(false);
     }
-    setStep("wordlist");
   }
 
   async function saveWordList() {
     setError("");
-    const rows = wordListText
-      .split("\n")
-      .filter((line) => line.trim() !== "")
-      .map((line) => line.split("\t"));
+    setIsLoading(true);
+    try {
+      const rows = wordListText
+        .split("\n")
+        .filter((line) => line.trim() !== "")
+        .map((line) => line.split("\t"));
 
-    const res = await fetch("/api/grading/wordlist", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ classId, day, rows }),
-    });
+      const res = await fetch("/api/grading/wordlist", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ classId, day, rows }),
+      });
 
-    if (!res.ok) {
-      setError("단어장 저장에 실패했습니다.");
-      return;
+      if (!res.ok) {
+        setError("단어장 저장에 실패했습니다.");
+        return;
+      }
+      setStep("answers");
+    } finally {
+      setIsLoading(false);
     }
-    setStep("answers");
   }
 
   async function submitAnswers(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
-    const fileInput = e.currentTarget.elements.namedItem(
-      "file"
-    ) as HTMLInputElement;
-    const file = fileInput.files?.[0];
-    if (!file) {
-      setError("답안 파일을 선택해주세요.");
-      return;
+    try {
+      const fileInput = e.currentTarget.elements.namedItem(
+        "file"
+      ) as HTMLInputElement;
+      const file = fileInput.files?.[0];
+      if (!file) {
+        setError("답안 파일을 선택해주세요.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.set("classId", classId);
+      formData.set("day", String(day));
+      formData.set("file", file);
+
+      const res = await fetch("/api/grading/grade", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "채점에 실패했습니다.");
+        return;
+      }
+
+      setWarnings(data.warnings);
+      setStudents(data.students);
+      setStep("results");
+    } finally {
+      setIsLoading(false);
     }
-
-    const formData = new FormData();
-    formData.set("classId", classId);
-    formData.set("day", String(day));
-    formData.set("file", file);
-
-    const res = await fetch("/api/grading/grade", {
-      method: "POST",
-      body: formData,
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      setError(data.error ?? "채점에 실패했습니다.");
-      return;
-    }
-
-    setWarnings(data.warnings);
-    setStudents(data.students);
-    setStep("results");
   }
 
   return (
@@ -134,7 +156,9 @@ export default function GradingPage() {
               ))}
             </select>
           </label>
-          <button onClick={loadWordList}>다음</button>
+          <button onClick={loadWordList} disabled={isLoading}>
+            {isLoading ? "처리 중..." : "다음"}
+          </button>
         </section>
       )}
 
@@ -149,15 +173,19 @@ export default function GradingPage() {
             rows={15}
             cols={60}
           />
-          <button onClick={saveWordList}>저장하고 다음</button>
+          <button onClick={saveWordList} disabled={isLoading}>
+            {isLoading ? "처리 중..." : "저장하고 다음"}
+          </button>
         </section>
       )}
 
       {step === "answers" && (
         <section>
           <form onSubmit={submitAnswers}>
-            <input type="file" name="file" accept=".xlsx,.csv" />
-            <button type="submit">채점하기</button>
+            <input type="file" name="file" accept=".xlsx,.csv" disabled={isLoading} />
+            <button type="submit" disabled={isLoading}>
+              {isLoading ? "처리 중..." : "채점하기"}
+            </button>
           </form>
         </section>
       )}
