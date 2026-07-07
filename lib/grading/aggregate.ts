@@ -47,6 +47,7 @@ export function aggregateResults(
     for (const answer of wrongAnswers) {
       counts.set(answer, (counts.get(answer) ?? 0) + 1);
     }
+    // 동점 시 먼저 나타난 오답을 선택 (Array.prototype.sort는 ES2019부터 안정정렬이고, Map 삽입 순서를 유지하므로)
     const [commonWrongAnswer] = [...counts.entries()].sort(
       (a, b) => b[1] - a[1]
     )[0];

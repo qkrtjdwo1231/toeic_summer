@@ -60,4 +60,23 @@ describe("aggregateResults", () => {
     const { warnings } = aggregateResults(results);
     expect(warnings).toEqual([]);
   });
+
+  it("resolves ties in wrong-answer count by selecting the first-seen answer", () => {
+    // 10 students miss the same word: 5 answer "밝다", 5 answer "빛나다"
+    // Both have equal count, so the first-seen answer ("밝다") should be selected
+    const results = Array.from({ length: 10 }, (_, i) =>
+      makeResult(`학생${i + 1}`, [
+        {
+          word: "brighten",
+          studentAnswer: i < 5 ? "밝다" : "빛나다",
+          correct: false,
+        },
+      ])
+    );
+
+    const { warnings } = aggregateResults(results);
+    expect(warnings).toEqual([
+      { word: "brighten", count: 10, commonWrongAnswer: "밝다" },
+    ]);
+  });
 });
