@@ -114,6 +114,116 @@ describe("gradeStudent", () => {
     expect(result.manualCheckRequired).toBe(true);
   });
 
+  it("marks the student for manual check when correct/ambiguous is a non-boolean type", async () => {
+    const client = makeMockClient(
+      JSON.stringify([
+        { word: "potential", correct: "true", ambiguous: false },
+        { word: "brighten", correct: true, ambiguous: false },
+      ])
+    );
+
+    const result = await gradeStudent(client, "이서연", wordList, [
+      "잠재적인",
+      "밝아지다",
+    ]);
+
+    expect(result.manualCheckRequired).toBe(true);
+  });
+
+  it("omits reasoning when the API returns a non-string reasoning value", async () => {
+    const client = makeMockClient(
+      JSON.stringify([
+        { word: "potential", correct: true, ambiguous: false },
+        {
+          word: "brighten",
+          correct: false,
+          ambiguous: true,
+          reasoning: 12345,
+        },
+      ])
+    );
+
+    const result = await gradeStudent(client, "최유진", wordList, [
+      "잠재적인",
+      "밝다",
+    ]);
+
+    expect(result.manualCheckRequired).toBe(false);
+    const brightenVerdict = result.verdicts.find(
+      (v) => v.word === "brighten"
+    );
+    expect(brightenVerdict).toEqual({
+      word: "brighten",
+      studentAnswer: "밝다",
+      correct: false,
+      ambiguous: true,
+    });
+  });
+
+  it("resolves duplicate words at different positions independently when their answers match", async () => {
+    const duplicateWordList: WordList = [
+      { word: "brighten", meanings: ["밝아지다"] },
+      { word: "potential", meanings: ["잠재적인"] },
+      { word: "brighten", meanings: ["밝아지다"] },
+    ];
+    const client = makeMockClient(
+      JSON.stringify([
+        { word: "brighten", correct: true, ambiguous: false },
+        { word: "potential", correct: true, ambiguous: false },
+      ])
+    );
+
+    const result = await gradeStudent(client, "정하윤", duplicateWordList, [
+      "밝아지다",
+      "잠재적인",
+      "밝아지다",
+    ]);
+
+    expect(result.manualCheckRequired).toBe(false);
+    expect(result.verdicts).toEqual([
+      {
+        word: "brighten",
+        studentAnswer: "밝아지다",
+        correct: true,
+        ambiguous: false,
+      },
+      {
+        word: "potential",
+        studentAnswer: "잠재적인",
+        correct: true,
+        ambiguous: false,
+      },
+      {
+        word: "brighten",
+        studentAnswer: "밝아지다",
+        correct: true,
+        ambiguous: false,
+      },
+    ]);
+  });
+
+  it("falls back to manual check when duplicate word positions have different answers and the response can't be matched unambiguously", async () => {
+    const duplicateWordList: WordList = [
+      { word: "brighten", meanings: ["밝아지다"] },
+      { word: "potential", meanings: ["잠재적인"] },
+      { word: "brighten", meanings: ["밝아지다"] },
+    ];
+    const client = makeMockClient(
+      JSON.stringify([
+        { word: "brighten", correct: true, ambiguous: false },
+        { word: "potential", correct: true, ambiguous: false },
+      ])
+    );
+
+    const result = await gradeStudent(client, "정하윤", duplicateWordList, [
+      "밝아지다",
+      "잠재적인",
+      "밝다",
+    ]);
+
+    expect(result.manualCheckRequired).toBe(true);
+  });
+
   it("keeps verdicts in wordList order regardless of the model's response order or blank-answer positions", async () => {
     const mixedWordList: WordList = [
       { word: "A", meanings: ["에이"] },

@@ -26,23 +26,27 @@ function buildPrompt(
 ${wordListText}`;
 }
 
+type WordToGrade = {
+  index: number;
+  word: string;
+  meanings: string[];
+  studentAnswer: string;
+};
+
 export async function gradeStudent(
   client: OpenAI,
   name: string,
   wordList: WordList,
   answers: string[]
 ): Promise<StudentGradeResult> {
-  const blankVerdicts = new Map<string, WordVerdict>();
-  const wordsToGrade: {
-    word: string;
-    meanings: string[];
-    studentAnswer: string;
-  }[] = [];
+  // wordList에 같은 단어가 중복될 수 있으므로, 단어 문자열이 아니라 위치(index)로 추적한다.
+  const blankVerdicts = new Map<number, WordVerdict>();
+  const wordsToGrade: WordToGrade[] = [];
 
   wordList.forEach((entry, index) => {
     const studentAnswer = (answers[index] ?? "").trim();
     if (studentAnswer === "") {
-      blankVerdicts.set(entry.word, {
+      blankVerdicts.set(index, {
         word: entry.word,
         studentAnswer: "",
         correct: false,
@@ -50,6 +54,7 @@ export async function gradeStudent(
       });
     } else {
       wordsToGrade.push({
+        index,
         word: entry.word,
         meanings: entry.meanings,
         studentAnswer,
@@ -58,9 +63,9 @@ export async function gradeStudent(
   });
 
   // wordList 순서를 그대로 따르도록 blank 채점 결과와 모델 채점 결과를 병합한다.
-  const orderedVerdicts = (graded: Map<string, WordVerdict>): WordVerdict[] =>
+  const orderedVerdicts = (graded: Map<number, WordVerdict>): WordVerdict[] =>
     wordList
-      .map((entry) => blankVerdicts.get(entry.word) ?? graded.get(entry.word))
+      .map((_entry, index) => blankVerdicts.get(index) ?? graded.get(index))
       .filter((v): v is WordVerdict => v !== undefined);
 
   if (wordsToGrade.length === 0) {
@@ -98,35 +103,67 @@ export async function gradeStudent(
     };
   }
 
-  const gradedVerdicts = new Map<string, WordVerdict>();
+  // 모델 응답은 단어 문자열 하나당 최대 한 개의 채점 항목만 준다.
+  const responseByWord = new Map<
+    string,
+    { correct: boolean; ambiguous: boolean; reasoning?: string }
+  >();
   for (const item of parsed) {
     if (item === null || typeof item !== "object") continue;
     const typed = item as {
       word?: unknown;
       correct?: unknown;
       ambiguous?: unknown;
-      reasoning?: string;
+      reasoning?: unknown;
     };
     if (
       typeof typed.word === "string" &&
       typeof typed.correct === "boolean" &&
       typeof typed.ambiguous === "boolean"
     ) {
-      const matched = wordsToGrade.find((w) => w.word === typed.word);
-      gradedVerdicts.set(typed.word, {
-        word: typed.word,
-        studentAnswer: matched?.studentAnswer ?? "",
+      responseByWord.set(typed.word, {
         correct: typed.correct,
         ambiguous: typed.ambiguous,
-        ...(typed.ambiguous && typed.reasoning
+        ...(typed.ambiguous && typeof typed.reasoning === "string"
           ? { reasoning: typed.reasoning }
           : {}),
       });
     }
   }
 
-  // 요청한 단어 중 하나라도 유효한 채점 결과가 없으면 전체를 수동 확인 대상으로 처리한다.
-  const allGraded = wordsToGrade.every((w) => gradedVerdicts.has(w.word));
+  // 같은 단어가 wordList의 여러 위치에 등장할 수 있으므로, 단어별로 채점 대상 위치들을 모아둔다.
+  const positionsByWord = new Map<string, WordToGrade[]>();
+  for (const w of wordsToGrade) {
+    const positions = positionsByWord.get(w.word) ?? [];
+    positions.push(w);
+    positionsByWord.set(w.word, positions);
+  }
+
+  const gradedVerdicts = new Map<number, WordVerdict>();
+  for (const [word, positions] of positionsByWord) {
+    const response = responseByWord.get(word);
+    if (!response) continue;
+
+    // 같은 단어가 여러 위치에 있을 때, 학생 답이 모두 같으면 같은 채점 결과를 적용해도 안전하다.
+    // 답이 서로 다르면 응답이 어느 위치를 가리키는지 알 수 없으므로 매칭하지 않는다.
+    const sameAnswer = positions.every(
+      (p) => p.studentAnswer === positions[0].studentAnswer
+    );
+    if (positions.length > 1 && !sameAnswer) continue;
+
+    for (const p of positions) {
+      gradedVerdicts.set(p.index, {
+        word: p.word,
+        studentAnswer: p.studentAnswer,
+        correct: response.correct,
+        ambiguous: response.ambiguous,
+        ...(response.reasoning ? { reasoning: response.reasoning } : {}),
+      });
+    }
+  }
+
+  // 요청한 위치 중 하나라도 유효한 채점 결과가 없으면 전체를 수동 확인 대상으로 처리한다.
+  const allGraded = wordsToGrade.every((w) => gradedVerdicts.has(w.index));
   if (!allGraded) {
     return {
       name,
