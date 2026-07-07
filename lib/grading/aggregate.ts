@@ -7,10 +7,18 @@ export interface WrongWordWarning {
   commonWrongAnswer: string;
 }
 
+export interface AmbiguousItem {
+  word: string;
+  studentAnswer: string;
+  correct: boolean;
+  reasoning?: string;
+}
+
 export interface StudentSummary {
   name: string;
   wrongWords: string[];
   manualCheckRequired: boolean;
+  ambiguousItems: AmbiguousItem[];
 }
 
 export interface AggregatedResults {
@@ -27,6 +35,14 @@ export function aggregateResults(
       .filter((v) => !v.correct)
       .map((v) => v.word),
     manualCheckRequired: result.manualCheckRequired,
+    ambiguousItems: result.verdicts
+      .filter((v) => v.ambiguous)
+      .map((v) => ({
+        word: v.word,
+        studentAnswer: v.studentAnswer,
+        correct: v.correct,
+        ...(v.reasoning ? { reasoning: v.reasoning } : {}),
+      })),
   }));
 
   const wrongAnswersByWord = new Map<string, string[]>();

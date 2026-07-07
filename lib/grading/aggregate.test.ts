@@ -4,11 +4,17 @@ import type { StudentGradeResult } from "./types";
 
 function makeResult(
   name: string,
-  verdicts: { word: string; studentAnswer: string; correct: boolean }[]
+  verdicts: {
+    word: string;
+    studentAnswer: string;
+    correct: boolean;
+    ambiguous?: boolean;
+    reasoning?: string;
+  }[]
 ): StudentGradeResult {
   return {
     name,
-    verdicts: verdicts.map((v) => ({ ...v, ambiguous: false })),
+    verdicts: verdicts.map((v) => ({ ambiguous: false, ...v })),
     manualCheckRequired: false,
   };
 }
@@ -28,8 +34,43 @@ describe("aggregateResults", () => {
 
     const { students } = aggregateResults(results);
     expect(students).toEqual([
-      { name: "박성재", wrongWords: ["brighten"], manualCheckRequired: false },
-      { name: "이주호", wrongWords: [], manualCheckRequired: false },
+      {
+        name: "박성재",
+        wrongWords: ["brighten"],
+        manualCheckRequired: false,
+        ambiguousItems: [],
+      },
+      {
+        name: "이주호",
+        wrongWords: [],
+        manualCheckRequired: false,
+        ambiguousItems: [],
+      },
+    ]);
+  });
+
+  it("surfaces ambiguous verdicts per student for teacher review", () => {
+    const results = [
+      makeResult("박성재", [
+        {
+          word: "brighten",
+          studentAnswer: "밝다",
+          correct: false,
+          ambiguous: true,
+          reasoning: "품사가 달라 오답으로 판단",
+        },
+        { word: "potential", studentAnswer: "잠재적인", correct: true },
+      ]),
+    ];
+
+    const { students } = aggregateResults(results);
+    expect(students[0].ambiguousItems).toEqual([
+      {
+        word: "brighten",
+        studentAnswer: "밝다",
+        correct: false,
+        reasoning: "품사가 달라 오답으로 판단",
+      },
     ]);
   });
 

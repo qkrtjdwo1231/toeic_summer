@@ -12,10 +12,18 @@ interface WarningRow {
   commonWrongAnswer: string;
 }
 
+interface AmbiguousItem {
+  word: string;
+  studentAnswer: string;
+  correct: boolean;
+  reasoning?: string;
+}
+
 interface StudentRow {
   name: string;
   wrongWords: string[];
   manualCheckRequired: boolean;
+  ambiguousItems: AmbiguousItem[];
 }
 
 export default function GradingPage() {
@@ -26,7 +34,24 @@ export default function GradingPage() {
   const [error, setError] = useState("");
   const [warnings, setWarnings] = useState<WarningRow[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
+  const [answerCountMismatch, setAnswerCountMismatch] = useState<string[]>([]);
+  // 애매 항목에 대한 교사의 정답/오답 뒤집기 결정. 키: "학생 이름::단어".
+  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
   const [isLoading, setIsLoading] = useState(false);
+
+  function effectiveWrongWords(student: StudentRow): string[] {
+    const wrongWords = new Set(student.wrongWords);
+    for (const item of student.ambiguousItems) {
+      const key = `${student.name}::${item.word}`;
+      const isCorrect = key in overrides ? overrides[key] : item.correct;
+      if (isCorrect) {
+        wrongWords.delete(item.word);
+      } else {
+        wrongWords.add(item.word);
+      }
+    }
+    return [...wrongWords];
+  }
 
   async function loadWordList() {
     setError("");
@@ -118,6 +143,8 @@ export default function GradingPage() {
 
       setWarnings(data.warnings);
       setStudents(data.students);
+      setAnswerCountMismatch(data.answerCountMismatch ?? []);
+      setOverrides({});
       setStep("results");
     } finally {
       setIsLoading(false);
@@ -192,6 +219,12 @@ export default function GradingPage() {
 
       {step === "results" && (
         <section>
+          {answerCountMismatch.length > 0 && (
+            <p role="alert">
+              답안 개수가 단어장과 맞지 않는 학생: {answerCountMismatch.join(", ")}{" "}
+              — 채점 결과가 부정확할 수 있으니 답안 파일을 확인해주세요.
+            </p>
+          )}
           {warnings.length > 0 && (
             <table>
               <thead>
@@ -212,6 +245,51 @@ export default function GradingPage() {
               </tbody>
             </table>
           )}
+          {students.some((s) => s.ambiguousItems.length > 0) && (
+            <section>
+              <h2>애매한 항목 검토</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>이름</th>
+                    <th>단어</th>
+                    <th>학생 답</th>
+                    <th>AI 판단 이유</th>
+                    <th>정답으로 처리</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {students.flatMap((s) =>
+                    s.ambiguousItems.map((item) => {
+                      const key = `${s.name}::${item.word}`;
+                      const isCorrect =
+                        key in overrides ? overrides[key] : item.correct;
+                      return (
+                        <tr key={key}>
+                          <td>{s.name}</td>
+                          <td>{item.word}</td>
+                          <td>{item.studentAnswer}</td>
+                          <td>{item.reasoning ?? ""}</td>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={isCorrect}
+                              onChange={() =>
+                                setOverrides((prev) => ({
+                                  ...prev,
+                                  [key]: !isCorrect,
+                                }))
+                              }
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </section>
+          )}
           <table>
             <thead>
               <tr>
@@ -226,7 +304,7 @@ export default function GradingPage() {
                   <td>
                     {s.manualCheckRequired
                       ? "수동 확인 필요"
-                      : s.wrongWords.join(", ")}
+                      : effectiveWrongWords(s).join(", ")}
                   </td>
                 </tr>
               ))}
