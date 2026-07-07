@@ -43,6 +43,38 @@ describe("gradeStudent", () => {
     });
   });
 
+  it("parses a response wrapped in a markdown ```json code block", async () => {
+    const client = makeMockClient(
+      "```json\n" +
+        JSON.stringify([
+          { word: "potential", correct: true, ambiguous: false },
+          { word: "brighten", correct: false, ambiguous: false },
+        ]) +
+        "\n```"
+    );
+
+    const result = await gradeStudent(client, "박성재", wordList, [
+      "잠재적인",
+      "밝다",
+    ]);
+
+    expect(result.manualCheckRequired).toBe(false);
+    expect(result.verdicts).toEqual([
+      {
+        word: "potential",
+        studentAnswer: "잠재적인",
+        correct: true,
+        ambiguous: false,
+      },
+      {
+        word: "brighten",
+        studentAnswer: "밝다",
+        correct: false,
+        ambiguous: false,
+      },
+    ]);
+  });
+
   it("parses correct/ambiguous verdicts from a well-formed API response", async () => {
     const client = makeMockClient(
       JSON.stringify([

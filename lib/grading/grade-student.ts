@@ -81,7 +81,13 @@ export async function gradeStudent(
     messages: [{ role: "user", content: buildPrompt(wordList, wordsToGrade) }],
   });
 
-  const content = completion.choices[0]?.message?.content ?? "";
+  const rawContent = completion.choices[0]?.message?.content ?? "";
+  // gpt-4o-mini는 지시해도 응답을 ```json ... ``` 코드블록으로 감싸는 경우가 많아 벗겨낸다.
+  const content = rawContent
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/```\s*$/, "")
+    .trim();
 
   // 응답이 JSON 파싱에 실패하면 blank 채점 결과만 남기고 수동 확인이 필요함을 표시한다.
   let parsed: unknown;
