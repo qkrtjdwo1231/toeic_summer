@@ -19,7 +19,16 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const body = await request.json();
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "잘못된 요청 형식입니다." },
+      { status: 400 }
+    );
+  }
+
   const { classId, day, rows } = body as {
     classId?: string;
     day?: number;

@@ -7,7 +7,16 @@ import { gradeStudent } from "@/lib/grading/grade-student";
 import { aggregateResults } from "@/lib/grading/aggregate";
 
 export async function POST(request: NextRequest) {
-  const formData = await request.formData();
+  let formData;
+  try {
+    formData = await request.formData();
+  } catch {
+    return NextResponse.json(
+      { error: "잘못된 요청 형식입니다." },
+      { status: 400 }
+    );
+  }
+
   const classId = formData.get("classId");
   const dayValue = formData.get("day");
   const file = formData.get("file");
