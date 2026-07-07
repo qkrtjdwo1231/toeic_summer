@@ -14,8 +14,15 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const wordList = await loadWordList(classId, day);
-  return NextResponse.json({ wordList });
+  try {
+    const wordList = await loadWordList(classId, day);
+    return NextResponse.json({ wordList });
+  } catch {
+    return NextResponse.json(
+      { error: "단어장 조회에 실패했습니다. 잠시 후 다시 시도해주세요." },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PUT(request: NextRequest) {
@@ -43,6 +50,12 @@ export async function PUT(request: NextRequest) {
   }
 
   const wordList = parseWordListRows(rows);
+  if (wordList.length === 0) {
+    return NextResponse.json(
+      { error: "단어장이 비어있습니다." },
+      { status: 400 }
+    );
+  }
   await saveWordList(classId, day, wordList);
   return NextResponse.json({ ok: true });
 }

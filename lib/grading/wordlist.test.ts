@@ -3,10 +3,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { parseWordListRows, saveWordList, loadWordList } from "./wordlist";
 import * as blob from "@vercel/blob";
 
-vi.mock("@vercel/blob", () => ({
-  put: vi.fn(),
-  head: vi.fn(),
-}));
+vi.mock("@vercel/blob", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@vercel/blob")>();
+  return { ...actual, put: vi.fn(), head: vi.fn() };
+});
 
 describe("parseWordListRows", () => {
   it("parses rows into WordEntry objects, trimming and dropping empty meanings", () => {
@@ -60,7 +60,7 @@ describe("loadWordList", () => {
     } as Awaited<ReturnType<typeof blob.head>>);
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue({ json: async () => list })
+      vi.fn().mockResolvedValue({ ok: true, json: async () => list })
     );
 
     const result = await loadWordList("toeic-mid-am", 4);
@@ -69,8 +69,31 @@ describe("loadWordList", () => {
   });
 
   it("returns null when the word list does not exist", async () => {
-    vi.mocked(blob.head).mockRejectedValue(new Error("not found"));
+    vi.mocked(blob.head).mockRejectedValue(
+      new blob.BlobNotFoundError()
+    );
     const result = await loadWordList("toeic-mid-am", 4);
     expect(result).toBeNull();
+  });
+
+  it("propagates a non-not-found error instead of silently returning null", async () => {
+    vi.mocked(blob.head).mockRejectedValue(new Error("network error"));
+    await expect(loadWordList("toeic-mid-am", 4)).rejects.toThrow(
+      "network error"
+    );
+  });
+
+  it("throws when the blob URL fetch responds with a non-ok status", async () => {
+    vi.mocked(blob.head).mockResolvedValue({
+      url: "https://blob.example/wordlists/toeic-mid-am/day-4.json",
+    } as Awaited<ReturnType<typeof blob.head>>);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 500 })
+    );
+
+    await expect(loadWordList("toeic-mid-am", 4)).rejects.toThrow(
+      "단어장 조회 실패"
+    );
   });
 });

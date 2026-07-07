@@ -1,5 +1,5 @@
 // 단어장 CSV/엑셀 행 파싱, Vercel Blob 저장/조회
-import { put, head } from "@vercel/blob";
+import { put, head, BlobNotFoundError } from "@vercel/blob";
 import type { WordList } from "./types";
 
 function blobPathname(classId: string, day: number): string {
@@ -35,11 +35,19 @@ export async function loadWordList(
   classId: string,
   day: number
 ): Promise<WordList | null> {
+  // 저장된 적이 없는 것(null 반환)과 네트워크/서버 오류(에러를 그대로 던짐)를
+  // 구분해야, 호출 쪽에서 "단어장 없음"과 "일시적 조회 실패"를 다르게 처리할 수 있다.
+  let info;
   try {
-    const info = await head(blobPathname(classId, day));
-    const response = await fetch(info.url);
-    return (await response.json()) as WordList;
-  } catch {
-    return null;
+    info = await head(blobPathname(classId, day));
+  } catch (err) {
+    if (err instanceof BlobNotFoundError) return null;
+    throw err;
   }
+
+  const response = await fetch(info.url);
+  if (!response.ok) {
+    throw new Error(`단어장 조회 실패: ${response.status}`);
+  }
+  return (await response.json()) as WordList;
 }

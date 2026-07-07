@@ -76,12 +76,25 @@ export async function gradeStudent(
     };
   }
 
-  const completion = await client.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [{ role: "user", content: buildPrompt(wordList, wordsToGrade) }],
-  });
+  // API 호출 자체가 실패해도(레이트리밋/네트워크 등) 이 학생만 수동 확인으로 표시하고,
+  // Promise.all로 묶인 반 전체 채점이 함께 실패하지 않도록 한다.
+  let rawContent: string;
+  try {
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "user", content: buildPrompt(wordList, wordsToGrade) },
+      ],
+    });
+    rawContent = completion.choices[0]?.message?.content ?? "";
+  } catch {
+    return {
+      name,
+      verdicts: orderedVerdicts(new Map()),
+      manualCheckRequired: true,
+    };
+  }
 
-  const rawContent = completion.choices[0]?.message?.content ?? "";
   // gpt-4o-mini는 지시해도 응답을 ```json ... ``` 코드블록으로 감싸는 경우가 많아 벗겨낸다.
   const content = rawContent
     .trim()

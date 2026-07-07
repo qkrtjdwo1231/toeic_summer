@@ -14,6 +14,16 @@ function makeMockClient(responseText: string) {
   } as unknown as import("openai").default;
 }
 
+function makeThrowingClient() {
+  return {
+    chat: {
+      completions: {
+        create: vi.fn().mockRejectedValue(new Error("rate limit exceeded")),
+      },
+    },
+  } as unknown as import("openai").default;
+}
+
 const wordList: WordList = [
   { word: "potential", meanings: ["잠재적인"] },
   { word: "brighten", meanings: ["밝아지다"] },
@@ -41,6 +51,17 @@ describe("gradeStudent", () => {
       correct: false,
       ambiguous: false,
     });
+  });
+
+  it("marks the student for manual check when the API call itself throws, without rejecting", async () => {
+    const client = makeThrowingClient();
+
+    const result = await gradeStudent(client, "박성재", wordList, [
+      "잠재적인",
+      "밝다",
+    ]);
+
+    expect(result.manualCheckRequired).toBe(true);
   });
 
   it("parses a response wrapped in a markdown ```json code block", async () => {
