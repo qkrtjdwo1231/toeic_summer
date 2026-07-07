@@ -32,7 +32,7 @@ export async function gradeStudent(
   wordList: WordList,
   answers: string[]
 ): Promise<StudentGradeResult> {
-  const verdicts: WordVerdict[] = [];
+  const blankVerdicts = new Map<string, WordVerdict>();
   const wordsToGrade: {
     word: string;
     meanings: string[];
@@ -42,7 +42,7 @@ export async function gradeStudent(
   wordList.forEach((entry, index) => {
     const studentAnswer = (answers[index] ?? "").trim();
     if (studentAnswer === "") {
-      verdicts.push({
+      blankVerdicts.set(entry.word, {
         word: entry.word,
         studentAnswer: "",
         correct: false,
@@ -57,8 +57,18 @@ export async function gradeStudent(
     }
   });
 
+  // wordList 순서를 그대로 따르도록 blank 채점 결과와 모델 채점 결과를 병합한다.
+  const orderedVerdicts = (graded: Map<string, WordVerdict>): WordVerdict[] =>
+    wordList
+      .map((entry) => blankVerdicts.get(entry.word) ?? graded.get(entry.word))
+      .filter((v): v is WordVerdict => v !== undefined);
+
   if (wordsToGrade.length === 0) {
-    return { name, verdicts, manualCheckRequired: false };
+    return {
+      name,
+      verdicts: orderedVerdicts(new Map()),
+      manualCheckRequired: false,
+    };
   }
 
   const completion = await client.chat.completions.create({
@@ -68,29 +78,66 @@ export async function gradeStudent(
 
   const content = completion.choices[0]?.message?.content ?? "";
 
+  // 응답이 JSON 파싱에 실패하면 blank 채점 결과만 남기고 수동 확인이 필요함을 표시한다.
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(content) as {
-      word: string;
-      correct: boolean;
-      ambiguous: boolean;
-      reasoning?: string;
-    }[];
+    parsed = JSON.parse(content);
+  } catch {
+    return {
+      name,
+      verdicts: orderedVerdicts(new Map()),
+      manualCheckRequired: true,
+    };
+  }
 
-    for (const item of parsed) {
-      const matched = wordsToGrade.find((w) => w.word === item.word);
-      verdicts.push({
-        word: item.word,
+  if (!Array.isArray(parsed)) {
+    return {
+      name,
+      verdicts: orderedVerdicts(new Map()),
+      manualCheckRequired: true,
+    };
+  }
+
+  const gradedVerdicts = new Map<string, WordVerdict>();
+  for (const item of parsed) {
+    if (item === null || typeof item !== "object") continue;
+    const typed = item as {
+      word?: unknown;
+      correct?: unknown;
+      ambiguous?: unknown;
+      reasoning?: string;
+    };
+    if (
+      typeof typed.word === "string" &&
+      typeof typed.correct === "boolean" &&
+      typeof typed.ambiguous === "boolean"
+    ) {
+      const matched = wordsToGrade.find((w) => w.word === typed.word);
+      gradedVerdicts.set(typed.word, {
+        word: typed.word,
         studentAnswer: matched?.studentAnswer ?? "",
-        correct: item.correct,
-        ambiguous: item.ambiguous,
-        ...(item.ambiguous && item.reasoning
-          ? { reasoning: item.reasoning }
+        correct: typed.correct,
+        ambiguous: typed.ambiguous,
+        ...(typed.ambiguous && typed.reasoning
+          ? { reasoning: typed.reasoning }
           : {}),
       });
     }
-
-    return { name, verdicts, manualCheckRequired: false };
-  } catch {
-    return { name, verdicts, manualCheckRequired: true };
   }
+
+  // 요청한 단어 중 하나라도 유효한 채점 결과가 없으면 전체를 수동 확인 대상으로 처리한다.
+  const allGraded = wordsToGrade.every((w) => gradedVerdicts.has(w.word));
+  if (!allGraded) {
+    return {
+      name,
+      verdicts: orderedVerdicts(new Map()),
+      manualCheckRequired: true,
+    };
+  }
+
+  return {
+    name,
+    verdicts: orderedVerdicts(gradedVerdicts),
+    manualCheckRequired: false,
+  };
 }
