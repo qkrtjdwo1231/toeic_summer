@@ -45,4 +45,15 @@ describe("verifyDocuments", () => {
       },
     ]);
   });
+
+  it("warns for every docType/session combination when the document set for a class type is entirely missing", () => {
+    const warnings = verifyDocuments(classified, []);
+
+    expect(warnings).toHaveLength(8);
+    for (const warning of warnings) {
+      expect(warning.classTypeId).toBe("toeic-mid");
+      const expectedNames = warning.session === "am" ? ["박성재", "이주호"] : [];
+      expect(warning.missingNames).toEqual(expectedNames);
+    }
+  });
 });

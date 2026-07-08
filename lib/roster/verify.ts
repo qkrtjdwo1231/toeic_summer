@@ -17,10 +17,30 @@ export function verifyDocuments(
   documents: ClassTypeDocuments[]
 ): MismatchWarning[] {
   const warnings: MismatchWarning[] = [];
+  const documentsById = new Map(documents.map((docs) => [docs.classType.id, docs]));
 
-  for (let i = 0; i < classified.length; i++) {
-    const { classType, am, pm } = classified[i];
-    const docs = documents[i];
+  for (const { classType, am, pm } of classified) {
+    const docs = documentsById.get(classType.id);
+
+    if (!docs) {
+      // 문서 생성 단계에서 이 반 유형이 통째로 누락된 경우: 모든 문서/세션 조합을 결측으로 경고 처리
+      const docTypes: DocType[] = ["printAttendance", "onlineAttendance", "counselingLog", "textbook"];
+      for (const docType of docTypes) {
+        warnings.push({
+          classTypeId: classType.id,
+          session: "am",
+          docType,
+          missingNames: am.map((s) => s.name),
+        });
+        warnings.push({
+          classTypeId: classType.id,
+          session: "pm",
+          docType,
+          missingNames: pm.map((s) => s.name),
+        });
+      }
+      continue;
+    }
 
     const checks: {
       session: "am" | "pm";
