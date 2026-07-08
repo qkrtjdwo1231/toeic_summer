@@ -7,6 +7,14 @@ import type { ClassTypeDocuments, MismatchWarning } from "@/lib/roster/types";
 
 type Step = "upload" | "columnSelect" | "results";
 
+// 문서 타입을 한국어로 표시하기 위한 매핑
+const DOC_TYPE_LABELS: Record<string, string> = {
+  printAttendance: "인쇄용 출석부",
+  onlineAttendance: "온라인 출석부",
+  counselingLog: "관리일지",
+  textbook: "교재배부명단",
+};
+
 export default function RosterPage() {
   const [step, setStep] = useState<Step>("upload");
   const [term, setTerm] = useState<"1" | "2">("1");
@@ -152,9 +160,9 @@ export default function RosterPage() {
               <tbody>
                 {warnings.map((w, i) => (
                   <tr key={i}>
-                    <td>{w.classTypeId}</td>
+                    <td>{CLASS_TYPES.find((c) => c.id === w.classTypeId)?.label ?? w.classTypeId}</td>
                     <td>{w.session === "am" ? "오전" : "오후"}</td>
-                    <td>{w.docType}</td>
+                    <td>{DOC_TYPE_LABELS[w.docType] ?? w.docType}</td>
                     <td>{w.missingNames.join(", ")}</td>
                   </tr>
                 ))}
