@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
   const buffer = await file.arrayBuffer();
 
   let applicationColumnIndex: number;
+  let students: ReturnType<typeof parseRosterRows>;
   try {
     if (typeof columnIndexValue === "string" && columnIndexValue !== "") {
       applicationColumnIndex = Number(columnIndexValue);
@@ -40,6 +41,8 @@ export async function POST(request: NextRequest) {
       }
       applicationColumnIndex = detected;
     }
+
+    students = parseRosterRows(buffer, applicationColumnIndex);
   } catch (error) {
     if (error instanceof RosterFormatError) {
       return NextResponse.json(
@@ -49,8 +52,6 @@ export async function POST(request: NextRequest) {
     }
     throw error;
   }
-
-  const students = parseRosterRows(buffer, applicationColumnIndex);
   const classified = classifyStudents(students);
 
   const hasAnyStudent = classified.some(
