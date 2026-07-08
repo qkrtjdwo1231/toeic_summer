@@ -24,6 +24,15 @@ describe("parseWordListRows", () => {
     const rows = [["", "무시됨", "", "", ""]];
     expect(parseWordListRows(rows)).toEqual([]);
   });
+
+  it("parses up to 5 meanings and drops any beyond that", () => {
+    const rows = [
+      ["multi", "뜻1", "뜻2", "뜻3", "뜻4", "뜻5", "뜻6(무시됨)"],
+    ];
+    expect(parseWordListRows(rows)).toEqual([
+      { word: "multi", meanings: ["뜻1", "뜻2", "뜻3", "뜻4", "뜻5"] },
+    ]);
+  });
 });
 
 describe("saveWordList", () => {

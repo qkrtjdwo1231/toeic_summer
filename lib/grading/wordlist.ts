@@ -12,7 +12,7 @@ export function parseWordListRows(rows: string[][]): WordList {
     .map((row) => ({
       word: row[0].trim(),
       meanings: row
-        .slice(1, 5)
+        .slice(1, 6)
         .map((m) => (m ?? "").trim())
         .filter((m) => m !== ""),
     }));
