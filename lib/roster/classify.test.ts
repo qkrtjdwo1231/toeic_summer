@@ -1,3 +1,4 @@
+// 반 유형별 학생 분류 로직 테스트
 import { describe, it, expect } from "vitest";
 import { classifyStudents } from "./classify";
 import type { RawRosterRow } from "./types";

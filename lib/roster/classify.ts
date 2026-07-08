@@ -1,3 +1,4 @@
+// 반 유형별 오전/오후 학생 분류
 import { CLASS_TYPES } from "./classes";
 import type { ClassifiedClassType, RawRosterRow } from "./types";
 
